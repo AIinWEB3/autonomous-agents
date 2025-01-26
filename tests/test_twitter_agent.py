@@ -4,6 +4,7 @@ import logging
 import unittest
 import unittest.mock
 from src.agent.agent import Agent
+from unittest.mock import patch
 
 class TestRespondToKeyUsers(unittest.TestCase):
     # Construct relevant paths (OS agnostic)
@@ -24,6 +25,19 @@ class TestRespondToKeyUsers(unittest.TestCase):
     agent.twitter = unittest.mock.Mock()
     agent.twitter.post_tweet.return_value = (True, 0)
 
+    @patch('src.agent.agent_tools.data.requests.get')
+    def test_agent_initialization(self, mock_get):
+        # Mock the API response
+        mock_get.return_value.json.return_value = {
+            "results": [
+                {"title": "Test news 1"},
+                {"title": "Test news 2"}
+            ]
+        }
+        mock_get.return_value.status_code = 200
+        
+        agent = Agent()
+        self.assertIsNotNone(agent)
 
     def get_conversation(self, key):
         return {key: self.test_conversations[key]}

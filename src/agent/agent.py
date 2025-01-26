@@ -8,6 +8,7 @@ from .agent_tools.data import Data
 from .agent_tools.model import Model
 from .agent_tools.twitter import Twitter
 from .agent_config.config import Config
+from tweepy.errors import TooManyRequests
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
@@ -80,21 +81,15 @@ class Agent:
         return relevant_conversations
 
 
-    def __get_relevant_conversations(self, hours=2):
-        """Fetches all conversations involving key_users in past `hours`"""
-
-        logging.debug(f"Key users: {self.KEY_USERS}")
-        logging.info(f"Fetching relevant conversations from past {hours}hrs...")
-
-        start_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=hours)
-        relevant_conversations = self.twitter.get_relevant_conversations(
-            key_users=self.KEY_USERS,
-            start_time=start_time)
-
-        logging.info(f"Found {len(relevant_conversations)} relevant conversations")
-        if relevant_conversations:
-            logging.info(pformat(relevant_conversations))
-        return relevant_conversations
+    def __get_relevant_conversations(self):
+        try:
+            relevant_conversations = self.twitter.get_relevant_conversations(
+                hours_ago=2
+            )
+            return relevant_conversations
+        except Exception as e:
+            self.logger.error(f"Error getting relevant conversations: {str(e)}")
+            return None
 
 
     def __respond_to_conversation(self, conversation):
@@ -120,43 +115,52 @@ class Agent:
         
 
     def respond_to_key_users(self):
-        """Responds to tweets by key users"""
-
-        logging.info("Responding to key users...")
-        relevant_conversations = self.__get_relevant_conversations()
-
-        if not relevant_conversations:
-            logging.info("No conversations to respond to.")
-            return
-        
-        threads = self.__get_threads(relevant_conversations.keys())
-        
-        response_count = 0
-        for conversation in relevant_conversations.values():
-            # Ensure that agent does not repsond to too many tweets
-            if response_count >= self.RESPONSES_PER_RUN:
-                break
+        """Respond to key users' tweets"""
+        try:
+            self.logger.info("Fetching relevant conversations from past 2hrs...")
+            relevant_conversations = self.__get_relevant_conversations()
             
-            conversation_id = conversation[0]["conversation_id"]
-            thread = threads.get(conversation_id, False)
+            if not relevant_conversations:
+                self.logger.info("No new relevant conversations found")
+                return
+                
+            threads = self.__get_threads(relevant_conversations.keys())
+            
+            response_count = 0
+            for conversation in relevant_conversations.values():
+                # Ensure that agent does not repsond to too many tweets
+                if response_count >= self.RESPONSES_PER_RUN:
+                    break
+                
+                conversation_id = conversation[0]["conversation_id"]
+                thread = threads.get(conversation_id, False)
 
-            if thread:
-                sorted_thread = sorted(thread, key=lambda k: k["created_at"])
-                first_tweet = sorted_thread[0]
-                # If the thread was started by a key user or by an agent 
-                # respond to it
-                if ((first_tweet["author"] in self.KEY_USERS) or
-                    (first_tweet["author"] == self.twitter.user_id)):
-                    self.__respond_to_conversation(sorted_thread)
-                    response_count+=1
+                if thread:
+                    sorted_thread = sorted(thread, key=lambda k: k["created_at"])
+                    first_tweet = sorted_thread[0]
+                    # If the thread was started by a key user or by an agent 
+                    # respond to it
+                    if ((first_tweet["author"] in self.KEY_USERS) or
+                        (first_tweet["author"] == self.twitter.user_id)):
+                        self.__respond_to_conversation(sorted_thread)
+                        response_count+=1
+                    else:
+                        logging.info(f"Skipping conversation {conversation_id}. Thread was not started by key user or agent.")
+                        continue
                 else:
-                    logging.info(f"Skipping conversation {conversation_id}. Thread was not started by key user or agent.")
-                    continue
-            else:
-                self.__respond_to_conversation(conversation)
-                response_count+=1
-
-        logging.info("Successfully responded to relevant conversations.")
+                    self.__respond_to_conversation(conversation)
+                    response_count+=1
+            
+            logging.info("Successfully responded to relevant conversations.")
+            
+        except TooManyRequests:
+            self.logger.warning("Hit Twitter rate limits. Waiting before next attempt...")
+            # Could add a sleep here if you want to retry automatically
+            return
+            
+        except Exception as e:
+            self.logger.error(f"Error responding to key users: {str(e)}")
+            raise e
 
 
     def post_tweet(self):

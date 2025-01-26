@@ -1,5 +1,7 @@
 import tweepy
 from pprint import pp
+import time
+from tweepy.errors import TooManyRequests, TwitterServerError
 
 class Twitter:
     """A class for interfacing with the Twitter API using Tweepy.
@@ -63,57 +65,46 @@ class Twitter:
         return "(conversation_id:" + " OR conversation_id:".join(conversation_ids) + ")"
 
 
-    def get_relevant_conversations(
-            self,
-            key_users=None,
-            conversation_ids=None,
-            start_time=None):
-        """
-        Gets tweets from key users or from specific conversations.
+    def get_relevant_conversations(self, hours_ago=2):
+        max_retries = 3
+        base_delay = 60  # Start with 60 second delay
         
-        Returns tweets grouped by conversation_id.
-        """
+        for attempt in range(max_retries):
+            try:
+                response = self.v2api.search_recent_tweets(
+                    query=self.search_query,
+                    max_results=100,
+                    tweet_fields=['author_id', 'created_at', 'conversation_id'],
+                    start_time=self._get_time_hours_ago(hours_ago),
+                    expansions=['author_id', 'referenced_tweets.id']
+                )
+                return response
+                
+            except TooManyRequests as e:
+                if attempt == max_retries - 1:  # Last attempt
+                    print(f"Rate limit exceeded after {max_retries} attempts. Giving up.")
+                    raise e
+                    
+                delay = base_delay * (2 ** attempt)  # Exponential backoff
+                print(f"Rate limit hit. Waiting {delay} seconds before retry {attempt + 1}/{max_retries}...")
+                time.sleep(delay)
+                continue
+                
+            except TwitterServerError as e:
+                print(f"Twitter server error: {e}")
+                if attempt == max_retries - 1:
+                    raise e
+                time.sleep(base_delay)
+                continue
+                
+            except Exception as e:
+                print(f"Unexpected error: {e}")
+                raise e
 
-        if key_users:
-            query = self.__build_search_query_users(key_users)
-        else:
-            query = self.__build_search_query_conversations(conversation_ids)
-
-        response = self.v2api.search_recent_tweets(
-            query=query,
-            start_time=start_time,
-            tweet_fields=["created_at","author_id","conversation_id", "public_metrics"],
-            expansions=["author_id"]
-        )
-        
-        if not response.get("data", False):
-            return {}
-
-        # Create user lookup dict
-        users = {user["id"]: user["username"] for user in response["includes"]["users"]}
-
-        conversations = {}
-        for tweet in response["data"]:
-            # If there is no entry corresponding to conversation then intialize
-            # array
-            if not conversations.get(tweet["conversation_id"], False):
-                conversations[tweet["conversation_id"]] = []
-
-            # Add conversation to conversations
-            conversations[tweet["conversation_id"]].append(
-                {
-                    "id": tweet["id"],
-                    "text": tweet["text"],
-                    "author_id": tweet["author_id"],
-                    "author": users[tweet["author_id"]],
-                    "created_at": tweet["created_at"],
-                    "conversation_id": tweet["conversation_id"],
-                    "public_metrics": tweet["public_metrics"]
-                }
-            )
-
-
-        return conversations
+    def _get_time_hours_ago(self, hours):
+        """Helper method to get datetime object for hours ago"""
+        from datetime import datetime, timedelta
+        return (datetime.utcnow() - timedelta(hours=hours)).isoformat('T') + 'Z'
 
 
     def post_tweet(self, post_text, in_reply_to_tweet_id=None):

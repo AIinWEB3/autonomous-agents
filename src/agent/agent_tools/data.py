@@ -1,5 +1,6 @@
 import datetime
 import requests
+import os
 from .twitter import Twitter
 
 class Data:
@@ -66,11 +67,25 @@ class Data:
 
     def __get_crypto_panic_data(self):
         """Fetches posts from the CryptoPanic API."""
-
-        url = f"https://cryptopanic.com/api/v1/posts/?auth_token={self.crypto_panic_key}&public=true&kind=news"
-        response = requests.request("GET", url).json()
-        
-        return [result["title"] for result in response["results"]]
+        try:
+            response = requests.get(
+                "https://cryptopanic.com/api/v1/posts/",
+                params={"auth_token": os.getenv("CRYPTO_PANIC_API_KEY"), "public": "true"}
+            )
+            response.raise_for_status()  # Raise an exception for bad status codes
+            data = response.json()
+            
+            if "results" not in data:
+                print("Warning: No 'results' key in CryptoPanic API response")
+                return []
+            
+            return [result["title"] for result in data["results"]]
+        except requests.RequestException as e:
+            print(f"Error fetching CryptoPanic data: {e}")
+            return []
+        except KeyError as e:
+            print(f"Unexpected API response structure: {e}")
+            return []
 
 
     def get_data(self):
