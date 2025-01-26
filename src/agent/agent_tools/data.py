@@ -1,7 +1,6 @@
 import datetime
 import requests
 import os
-from .twitter import Twitter
 
 class Data:
     """
@@ -44,49 +43,18 @@ class Data:
     # Will fetch fetch news from the past `PERIOD` hours
     PERIOD=2
 
-    def __init__(self, clients, keys):
+    def __init__(self, apis, keys):
         """
-        Initializes the Data class with clients and keys.
-
+        Initialize the Data class.
+        
         Args:
-            clients (dict): A dictionary containing the relevant client objects.
-            keys (dict): A dictionary containing the relevant API keys.
+            apis (dict): Dictionary of API objects (like Twitter client)
+            keys (dict): Dictionary of API keys (like CryptoPanic API key)
         """
-        self.twitter = clients["twitter"]
-        self.crypto_panic_key = keys["crypto_panic"]
+        self.apis = apis
+        self.keys = keys
+        self.crypto_panic_key = keys.get("crypto_panic")
         self.start_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=self.PERIOD)
-
-
-    def __get_twitter_data(self):
-        """Fetches relevant cryptocurrency-related tweets."""
-        key_users = self.CRYPTO_NEWS + self.KOLS
-        return self.twitter.get_relevant_conversations(
-            key_users=key_users,
-            start_time=self.start_time)
-    
-
-    def __get_crypto_panic_data(self):
-        """Fetches posts from the CryptoPanic API."""
-        try:
-            response = requests.get(
-                "https://cryptopanic.com/api/v1/posts/",
-                params={"auth_token": os.getenv("CRYPTO_PANIC_API_KEY"), "public": "true"}
-            )
-            response.raise_for_status()  # Raise an exception for bad status codes
-            data = response.json()
-            
-            if "results" not in data:
-                print("Warning: No 'results' key in CryptoPanic API response")
-                return []
-            
-            return [result["title"] for result in data["results"]]
-        except requests.RequestException as e:
-            print(f"Error fetching CryptoPanic data: {e}")
-            return []
-        except KeyError as e:
-            print(f"Unexpected API response structure: {e}")
-            return []
-
 
     def get_data(self):
         """
@@ -94,12 +62,4 @@ class Data:
         
         Called once when agent starts up.
         """
-
-        twitter_data = self.__get_twitter_data()
-        crypto_panic_data = self.__get_crypto_panic_data()
-        
-        return {
-            "twitter_data": twitter_data,
-            "crypto_panic_data": crypto_panic_data
-        }
-
+        return {}

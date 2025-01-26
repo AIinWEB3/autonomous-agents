@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 from pprint import pformat
 from .agent_tools.data import Data
 from .agent_tools.model import Model
-from .agent_tools.twitter import Twitter
 from .agent_config.config import Config
 from tweepy.errors import TooManyRequests
 
@@ -14,12 +13,6 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
 
 class Agent:
-    # Agent will respond to tweets from these users
-    KEY_USERS = ["testfollower001"]
-
-    # Agent will post this number of respones per run
-    RESPONSES_PER_RUN = 5
-
     def __init__(self):
         # Load environment variables
         load_dotenv()
@@ -34,179 +27,81 @@ class Agent:
             model=os.getenv("MODEL_NAME")
         )
 
-        # Initialize twitter handler
-        self.twitter = Twitter(
-            api_key=os.getenv("TWITTER_API_KEY"),
-            api_secret=os.getenv("TWITTER_API_SECRET"),
-            access_token=os.getenv("TWITTER_ACCESS_TOKEN"),
-            access_token_secret=os.getenv("TWITTER_ACCESS_TOKEN_SECRET"),
-            bearer_token=os.getenv("TWITTER_BEARER_TOKEN")
-        )
+        # Initialize empty data
+        self.data = {}
 
-        # Initialize data
-        self.data = Data(
-            {"twitter": self.twitter},
-            {"crypto_panic": os.getenv("CRYPTO_PANIC_KEY")}
-        ).get_data()
+        # Set up logging
+        self.logger = logging.getLogger(__name__)
 
+    def set_topics(self, topics):
+        """Sets the list of topics for the agent to post about."""
+        self.topics = topics
 
     def __construct_data_prompt(self):
         return self.config.data_prompt + pformat(self.data)
 
-
-    def __construct_post_prompt(self, processed_data):
-        return self.config.purpose_prompt + self.config.post_prompt + processed_data
-
+    def __construct_post_prompt(self):
+        """Constructs the post prompt using the list of topics."""
+        return self.config.purpose_prompt + self.config.post_prompt + str(self.topics)
 
     def __construct_repsonse_prompt(self, conversation):
         return self.config.purpose_prompt + self.config.reply_prompt + pformat(conversation)
     
-
     def __process_data(self):
-        prompt = self.__construct_data_prompt()
-        return self.model.query(prompt)
-
-
-    def __get_threads(self, conversation_ids):
-        """Fetches all tweets in conversations"""
-
-        logging.debug(f"Conversation_ids: {conversation_ids}")
-        logging.info(f"Fetching tweets in relevant threads...")
-
-        relevant_conversations = self.twitter.get_relevant_conversations(conversation_ids=conversation_ids)
-
-        logging.info(f"Found {len(relevant_conversations)} relevant threads")
-        if relevant_conversations:
-            logging.info(pformat(relevant_conversations))
-        return relevant_conversations
-
-
-    def __get_relevant_conversations(self):
         try:
-            relevant_conversations = self.twitter.get_relevant_conversations(
-                hours_ago=2
-            )
-            return relevant_conversations
+            prompt = self.__construct_data_prompt()
+            logging.info("Processing data with LLM...")
+            response = self.model.query(prompt)
+            logging.info("Data processed successfully")
+            return response
         except Exception as e:
-            self.logger.error(f"Error getting relevant conversations: {str(e)}")
+            logging.error(f"Error processing data: {e}")
             return None
 
+    # Comment out Twitter-related methods for now
+    """
+    def __get_threads(self, conversation_ids):
+        pass
+
+    def __get_relevant_conversations(self):
+        pass
 
     def __respond_to_conversation(self, conversation):
-        """Uses model to respond to conversation"""
-
-        first_tweet = conversation[0]
-        last_tweet = conversation[-1]
-        conversation_id = first_tweet["conversation_id"]
-        logging.info(f"Responding to conversation {conversation_id}...")
-
-        prompt = self.__construct_repsonse_prompt(conversation)
-        try:
-            # Generate response using model and remove quotation marks
-            response = self.model.query(prompt)[1:-1]
-            logging.info(f"Response: {response}")
-        
-            # Post response
-            logging.info("Posting response...")
-            self.twitter.post_tweet(response, last_tweet["id"])
-            
-        except Exception as e:
-            logging.warning(f"Error processing conversation {conversation_id}: {e}")
-        
+        pass
 
     def respond_to_key_users(self):
-        """Respond to key users' tweets"""
-        try:
-            self.logger.info("Fetching relevant conversations from past 2hrs...")
-            relevant_conversations = self.__get_relevant_conversations()
-            
-            if not relevant_conversations:
-                self.logger.info("No new relevant conversations found")
-                return
-                
-            threads = self.__get_threads(relevant_conversations.keys())
-            
-            response_count = 0
-            for conversation in relevant_conversations.values():
-                # Ensure that agent does not repsond to too many tweets
-                if response_count >= self.RESPONSES_PER_RUN:
-                    break
-                
-                conversation_id = conversation[0]["conversation_id"]
-                thread = threads.get(conversation_id, False)
-
-                if thread:
-                    sorted_thread = sorted(thread, key=lambda k: k["created_at"])
-                    first_tweet = sorted_thread[0]
-                    # If the thread was started by a key user or by an agent 
-                    # respond to it
-                    if ((first_tweet["author"] in self.KEY_USERS) or
-                        (first_tweet["author"] == self.twitter.user_id)):
-                        self.__respond_to_conversation(sorted_thread)
-                        response_count+=1
-                    else:
-                        logging.info(f"Skipping conversation {conversation_id}. Thread was not started by key user or agent.")
-                        continue
-                else:
-                    self.__respond_to_conversation(conversation)
-                    response_count+=1
-            
-            logging.info("Successfully responded to relevant conversations.")
-            
-        except TooManyRequests:
-            self.logger.warning("Hit Twitter rate limits. Waiting before next attempt...")
-            # Could add a sleep here if you want to retry automatically
-            return
-            
-        except Exception as e:
-            self.logger.error(f"Error responding to key users: {str(e)}")
-            raise e
-
+        pass
 
     def post_tweet(self):
-        """Post new tweets"""
-        
-        logging.info("Generating new tweets...")
+        pass
+    """
 
-        # Process data
-        processed_data = self.__process_data()
-
-        # Construct prompt
-        prompt = self.__construct_post_prompt(processed_data)
-
-        try:
-            # Generate response using model
-            response = self.model.query(prompt)
-            logging.debug(f"Model response: {response}")
-            tweets = [s.strip('"') for s in response.split('\n') if s.strip()]
-            logging.info(f"Generated tweets: {tweets}")
-        
-            # Post the response as a twitter thread
-            logging.info("Posting generated tweets...")
-            twitter_response = self.twitter.post_tweet(
-                post_text=tweets[0]
-            )
-            in_reply_to_tweet_id = twitter_response[1]
-            for tweet in tweets[1:]:
-                twitter_response = self.twitter.post_tweet(
-                    post_text=tweet,
-                    in_reply_to_tweet_id=in_reply_to_tweet_id
-                )
-                in_reply_to_tweet_id = twitter_response[1]
-        
-        except Exception as e:
-            logging.warning(f"Error posting tweet: {e}")
-
+    def respond_to_key_users(self):
+        # Example logic to respond to key users
+        conversations = self.twitter.get_relevant_conversations()
+        for conversation in conversations:
+            # Determine if a response is needed
+            if self.should_respond(conversation):
+                self.twitter.post_tweet("Responding to a key user!")
 
 def main():
     try:
         logging.info("Agent starting up...")
         agent = Agent()
-        agent.respond_to_key_users()
-        agent.post_tweet()
+        
+        # Process data and generate response
+        processed_data = agent.__process_data()
+        if processed_data:
+            logging.info("Generated response:")
+            print(processed_data)
+        else:
+            logging.error("Failed to process data")
+        
         logging.info("Agent shutting down...")
+    except Exception as e:
+        logging.error(f"Agent error: {e}")
     except KeyboardInterrupt:
-        logging.info("Agent shutting down...")
+        logging.info("Agent shutting down (interrupted by user)...")
 
 
 if __name__ == "__main__":

@@ -65,9 +65,18 @@ class Twitter:
         return "(conversation_id:" + " OR conversation_id:".join(conversation_ids) + ")"
 
 
-    def get_relevant_conversations(self, hours_ago=2):
+    def get_relevant_conversations(self, key_users=None, conversation_ids=None, start_time=None, hours_ago=2):
+        """Retrieves tweets from specified users or with particular conversation ids and groups them by conversation ID."""
         max_retries = 3
         base_delay = 60  # Start with 60 second delay
+        
+        # Build the search query based on provided parameters
+        if key_users:
+            self.search_query = self.__build_search_query_users(key_users)
+        elif conversation_ids:
+            self.search_query = self.__build_search_query_conversations(conversation_ids)
+        else:
+            raise ValueError("Either key_users or conversation_ids must be provided.")
         
         for attempt in range(max_retries):
             try:
@@ -75,7 +84,7 @@ class Twitter:
                     query=self.search_query,
                     max_results=100,
                     tweet_fields=['author_id', 'created_at', 'conversation_id'],
-                    start_time=self._get_time_hours_ago(hours_ago),
+                    start_time=start_time or self._get_time_hours_ago(hours_ago),
                     expansions=['author_id', 'referenced_tweets.id']
                 )
                 return response
