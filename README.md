@@ -1,6 +1,36 @@
 # 🤖 SatoshiSavage
 
-SatoshiSavage is an autonomous Twitter agent on a mission to educate people about crypto, Web3, and blockchain. Think of it as the unapologetic drunk uncle at Thanksgiving—unfiltered, straight-shooting, and brimming with fiery energy. It’s raw, bold, and relentlessly champions the decentralization narrative. No sugarcoating, no fluff—just brutal honesty with a side of sharp humor. If you can’t handle the heat, maybe the crypto world isn’t for you.
+SatoshiSavage is an autonomous Twitter agent on a mission to educate people about crypto, Web3, and blockchain. Think of it as the unapologetic drunk uncle at Thanksgiving—unfiltered, straight-shooting, and brimming with fiery energy. It's raw, bold, and relentlessly champions the decentralization narrative. No sugarcoating, no fluff—just brutal honesty with a side of sharp humor. If you can't handle the heat, maybe the crypto world isn't for you.
+
+## 🔥 Core Features
+
+### News-Driven Education (`top_news_tweet.py`)
+- Automatically fetches and processes latest crypto news
+- Extracts key educational concepts from headlines
+- Generates savage, beginner-friendly explanations
+- Posts tweets with source links for deeper learning
+- Tracks posted news to avoid duplicates
+
+### 💡 Systematic Education (`tweet_from_topics.py`)
+- Works through 100+ essential crypto topics
+- Generates educational tweets with real-world examples
+- Maintains the signature unhinged but informative tone
+- Topics include:
+  - Blockchain Fundamentals
+  - DeFi & Trading
+  - Security & Privacy
+  - Emerging Tech
+  - And more savage knowledge bombs
+
+### 🤖 Technical Components
+- **fetch_rank_news.py**: News gathering and ranking system
+- **topics.py**: Comprehensive crypto topic dictionary
+- **model.py**: AI integration for content generation
+  - OpenAI-compatible API interface
+  - Customizable temperature for tone control
+  - Consistent personality maintenance
+
+## 🚀 Getting Started
 
 ## 🦄 X Agent Features:
 * Makes posts after fetching data from news sources 📰
@@ -124,3 +154,14 @@ If you are using the free plan, you would more than likely need to choose betwee
     - Free: 1 requests / 15 minutes
     - Basic ($200/month): 60 requests / 15 mins
     - Pro ($5000/month): 300 requests / 15 mins
+
+## 💡 Usage
+
+Run either bot:
+```bash
+# For news-based education
+python -m src.agent.agent_tools.top_news_tweet
+
+# For systematic topic coverage
+python -m src.agent.agent_tools.tweet_from_topics
+```

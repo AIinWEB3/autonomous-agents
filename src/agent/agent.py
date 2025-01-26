@@ -92,7 +92,7 @@ def main():
         # Prompt user to select the operation
         print("Select the operation:")
         print("1. Tweet from Topics")
-        print("2. Post Educational Tweet from Top News")
+        print("2. Tweet from Top News")
         choice = input("Enter 1 or 2: ").strip()
         
         if choice == '1':
