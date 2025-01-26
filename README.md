@@ -72,7 +72,7 @@ pip install -r requirements.txt
 
 ### 4.&nbsp;&nbsp;Run tests
 ```
-python -m unittest
+python -m unittest -v
 ```
 
 ### 5.&nbsp;&nbsp;Run your agent

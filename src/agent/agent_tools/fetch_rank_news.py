@@ -4,30 +4,22 @@ from dotenv import load_dotenv
 from src.agent.agent_tools.model import Model
 
 def get_ranked_news(num_news=5):
-    # Load environment variables
     load_dotenv()
-    
-    # Get auth token from environment variable
     auth_token = os.getenv("CRYPTOPANIC_AUTH_TOKEN")
     if not auth_token:
         print("Error: CRYPTOPANIC_AUTH_TOKEN not found in .env file")
         return
     
-    # Initialize the model
     model = Model(
         api_key=os.getenv("MODEL_API_KEY"),
         url=os.getenv("MODEL_URL"),
         model=os.getenv("MODEL_NAME")
     )
     
-    # Define the API endpoint
     api_url = "https://cryptopanic.com/api/v1/posts/"
-    
-    # Construct the full URL with the auth token and limit
     full_url = f"{api_url}?auth_token={auth_token}&public=true&limit={num_news}"
     
     try:
-        # Make a GET request to the API
         response = requests.get(full_url)
         
         if response.status_code == 200:
@@ -37,58 +29,78 @@ def get_ranked_news(num_news=5):
                 ranked_news = []
                 
                 for news in news_items:
-                    # Construct prompt for analysis
+                    # Enhanced prompt with more context and specific criteria
                     prompt = f"""
-                    Analyze this crypto news item and rate its potential value on a scale of 1-100:
-                    Title: {news.get('title')}
-                    URL: {news.get('url')}
+                    Analyze this crypto news item and rate its potential impact and value on a scale of 1-100.
                     
-                    Please provide:
-                    1. Value score (1-100)
-                    2. Brief explanation (1 sentence)
+                    News Details:
+                    - Title: {news.get('title')}
+                    - URL: {news.get('url')}
+                    - Published: {news.get('published_at')}
                     
-                    Format your response as:
-                    Value: [score]
-                    Explanation: [brief analysis]
+                    Consider these factors in your scoring:
+                    - Market Impact (1-25): How much could this affect crypto markets?
+                    - Innovation/Technology (1-25): Does this involve technological advancement?
+                    - Adoption/Usage (1-25): Will this increase crypto adoption or usage?
+                    - Regulatory/Risk (1-25): Are there regulatory or risk implications?
+                    
+                    Format your response exactly as follows:
+                    Market Impact Score: [number]
+                    Innovation Score: [number]
+                    Adoption Score: [number]
+                    Risk Score: [number]
+                    Total Value: [sum of all scores]
+                    Explanation: [1-2 sentence analysis]
                     """
                     
-                    # Debug: Print the prompt
-                    print(f"Prompt for news '{news.get('title')}': {prompt}")
-                    
                     analysis = model.query(prompt)
+                    print(f"\nRaw analysis for '{news.get('title')}': {analysis}")
                     
-                    # Debug: Print the raw analysis result
-                    print(f"Raw analysis for news '{news.get('title')}': {analysis}")
-                    
-                    # Extract the value score from the analysis
+                    # Enhanced score extraction
                     try:
-                        score_line = next(line for line in analysis.split('\n') if line.startswith('Value:'))
-                        score = int(score_line.split(': ')[1].strip())
-                    except (StopIteration, ValueError, IndexError) as e:
-                        print(f"Error extracting score for news '{news.get('title')}': {e}")
-                        score = 0  # Default score if extraction fails
+                        # Extract individual component scores
+                        lines = analysis.split('\n')
+                        scores = {}
+                        for line in lines:
+                            if 'Score:' in line:
+                                category, value = line.split('Score:')
+                                scores[category.strip()] = int(value.strip())
+                            elif 'Total Value:' in line:
+                                total_score = int(line.split(':')[1].strip())
+                            elif 'Explanation:' in line:
+                                explanation = line.split(':')[1].strip()
+                        
+                        # Validate total score
+                        calculated_total = sum(scores.values())
+                        if abs(calculated_total - total_score) > 1:  # Allow for minor rounding differences
+                            print(f"Warning: Score mismatch. Calculated: {calculated_total}, Reported: {total_score}")
+                            total_score = calculated_total
+                        
+                    except Exception as e:
+                        print(f"Error extracting scores: {e}")
+                        total_score = 0
+                        explanation = "Score extraction failed"
                     
-                    # Add analysis and score to news item
                     news['analysis'] = analysis
-                    news['score'] = score
+                    news['score'] = total_score
+                    news['detailed_scores'] = scores
+                    news['explanation'] = explanation
                     ranked_news.append(news)
                 
                 # Sort by value score
                 ranked_news.sort(key=lambda x: x['score'], reverse=True)
                 
-                # Debug: Print the sorted scores
-                print("Sorted scores:")
-                for news in ranked_news:
-                    print(f"Title: {news.get('title')}, Score: {news['score']}")
-                
-                # Print ranked news
+                # Print ranked news with detailed breakdown
                 print("\n=== Ranked Crypto News by Value ===\n")
                 for i, news in enumerate(ranked_news, 1):
                     print(f"\n{i}. {news.get('title')}")
                     print(f"Published At: {news.get('published_at')}")
                     print(f"URL: {news.get('url')}")
-                    print("\nAnalysis:")
-                    print(news['analysis'])
+                    print("\nScore Breakdown:")
+                    for category, score in news.get('detailed_scores', {}).items():
+                        print(f"- {category}: {score}")
+                    print(f"Total Score: {news['score']}")
+                    print(f"Explanation: {news.get('explanation')}")
                 
                 return ranked_news
             else:
@@ -103,8 +115,6 @@ def get_ranked_news(num_news=5):
 if __name__ == "__main__":
     ranked_news = get_ranked_news(5)
     
-    # Optionally post educational tweet about top news
     post_tweet = input("\nWould you like to post an educational tweet about the top news? (y/n): ")
     if post_tweet.lower() == 'y':
         from src.agent.agent_tools.top_news_tweet import post_educational_tweet
-        post_educational_tweet()
