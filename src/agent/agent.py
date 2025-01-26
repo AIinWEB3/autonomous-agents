@@ -4,10 +4,11 @@ import os
 import logging
 from dotenv import load_dotenv
 from pprint import pformat
-from .agent_tools.data import Data
 from .agent_tools.model import Model
 from .agent_config.config import Config
 from tweepy.errors import TooManyRequests
+from src.agent.agent_tools.tweet_from_topics import main as tweet_from_topics_main
+from src.agent.agent_tools.top_news_tweet import post_educational_tweet
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
@@ -87,22 +88,31 @@ class Agent:
 def main():
     try:
         logging.info("Agent starting up...")
-        agent = Agent()
         
-        # Process data and generate response
-        processed_data = agent.__process_data()
-        if processed_data:
-            logging.info("Generated response:")
-            print(processed_data)
+        # Prompt user to select the operation
+        print("Select the operation:")
+        print("1. Tweet from Topics")
+        print("2. Post Educational Tweet from Top News")
+        choice = input("Enter 1 or 2: ").strip()
+        
+        if choice == '1':
+            logging.info("Running Tweet from Topics...")
+            tweet_from_topics_main()
+        elif choice == '2':
+            logging.info("Running Post Educational Tweet from Top News...")
+            success, tweet_id = post_educational_tweet()
+            if success:
+                logging.info(f"Tweet posted successfully! Tweet ID: {tweet_id}")
+            else:
+                logging.error("Failed to post educational tweet.")
         else:
-            logging.error("Failed to process data")
+            logging.error("Invalid choice. Please enter 1 or 2.")
         
         logging.info("Agent shutting down...")
     except Exception as e:
         logging.error(f"Agent error: {e}")
     except KeyboardInterrupt:
         logging.info("Agent shutting down (interrupted by user)...")
-
 
 if __name__ == "__main__":
     main()
