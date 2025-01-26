@@ -1,6 +1,8 @@
-# 🤖 SatoshiSavage
+# 🤖 Crypto-Drunk-Uncle (aka SatoshiSavage)
 
-SatoshiSavage is an autonomous Twitter agent on a mission to educate people about crypto, Web3, and blockchain. Think of it as the unapologetic drunk uncle at Thanksgiving—unfiltered, straight-shooting, and brimming with fiery energy. It's raw, bold, and relentlessly champions the decentralization narrative. No sugarcoating, no fluff—just brutal honesty with a side of sharp humor. If you can't handle the heat, maybe the crypto world isn't for you.
+Crypto-Drunk-Uncle (aka SatoshiSavage) is an autonomous Twitter agent on a mission to educate people about crypto, Web3, and blockchain. Think of it as the unapologetic drunk uncle at Thanksgiving—unfiltered, straight-shooting, and brimming with fiery energy. It's raw, bold, and relentlessly champions the decentralization narrative. No sugarcoating, no fluff—just brutal honesty with a side of sharp humor. If you can't handle the heat, maybe the crypto world isn't for you.
+
+## Built with Dobby, the ultimate model for transforming dry knowledge into engaging, bold humor, it delivers real-time crypto news and educational content to make Web3 fun, accessible, and impossible to ignore. SatoshiSavage isn’t just a bot—it’s a catalyst for mainstream blockchain adoption, blending entertainment and education to onboard the next million users into the decentralized future.
 
 ## 🔥 Core Features
 
